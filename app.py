@@ -1,179 +1,337 @@
 import base64
 import io
+import math
 
 import numpy as np
 import streamlit as st
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 from streamlit_drawable_canvas import st_canvas
 
-# ---------------------------------------------------------
-# CONFIGURACIÓN DE PÁGINA
-# ---------------------------------------------------------
 st.set_page_config(
     page_title="Costurero Digital - Diseño de Modas",
     page_icon="🧵",
     layout="wide",
 )
 
-# ---------------------------------------------------------
-# CSS AMBIENTACIÓN COSTURERO MORADO
-# ---------------------------------------------------------
+# =========================================================
+# CSS: ambiente de costurero morado + fondo con patrones de hilo/aguja
+# =========================================================
 st.markdown("""
 <style>
+    /* Fondo base morado con textura de tela */
     .stApp {
-        background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 50%, #d8b4fe 100%);
+        background-color: #2d1b4e;
+        background-image:
+            radial-gradient(circle at 20% 30%, rgba(168, 85, 247, 0.15) 0%, transparent 50%),
+            radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.12) 0%, transparent 50%),
+            repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.03) 10px, rgba(255,255,255,0.03) 20px),
+            repeating-linear-gradient(-45deg, transparent, transparent 10px, rgba(255,255,255,0.03) 10px, rgba(255,255,255,0.03) 20px);
     }
+
+    /* Título con estilo de letrero de costura */
     h1 {
         font-family: 'Georgia', serif;
-        color: #6b21a8;
+        color: #e9d5ff;
         text-align: center;
-        text-shadow: 1px 1px 3px rgba(107, 33, 168, 0.2);
+        text-shadow: 0 0 20px rgba(168, 85, 247, 0.6), 2px 2px 4px rgba(0,0,0,0.5);
         border-bottom: 3px dashed #a855f7;
         padding-bottom: 10px;
+        letter-spacing: 2px;
     }
     h2, h3 {
         font-family: 'Georgia', serif;
-        color: #6b21a8;
+        color: #d8b4fe;
     }
+
+    /* Sidebar oscura morada */
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #faf5ff 0%, #f3e8ff 100%);
-        border-right: 2px dashed #c084fc;
+        background: linear-gradient(180deg, #1e1233 0%, #2d1b4e 100%);
+        border-right: 3px dashed #7e22ce;
     }
+    section[data-testid="stSidebar"] .stMarkdown,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span {
+        color: #e9d5ff !important;
+    }
+    section[data-testid="stSidebar"] .stSelectbox label,
+    section[data-testid="stSidebar"] .stSlider label,
+    section[data-testid="stSidebar"] .stRadio label {
+        color: #d8b4fe !important;
+    }
+
+    /* Botones */
     .stButton > button {
         background-color: #7e22ce;
         color: white;
         border-radius: 20px;
-        border: 2px solid #6b21a8;
+        border: 2px solid #a855f7;
         font-weight: bold;
         padding: 0.5em 1.5em;
+        box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
     }
     .stButton > button:hover {
-        background-color: #6b21a8;
+        background-color: #9333ea;
         color: #faf5ff;
+        box-shadow: 0 0 20px rgba(168, 85, 247, 0.8);
     }
+
+    /* Lienzo con marco de costurero */
     div[data-testid="stCanvas"] {
-        border: 3px solid #a855f7;
-        border-radius: 10px;
-        box-shadow: 5px 5px 15px rgba(107, 33, 168, 0.25);
-        background: white;
-        padding: 5px;
+        border: 4px solid #a855f7;
+        border-radius: 12px;
+        box-shadow: 0 0 30px rgba(168, 85, 247, 0.5), inset 0 0 20px rgba(0,0,0,0.3);
+        background: #1a0f2e;
+        padding: 8px;
     }
+
+    /* Caja descriptiva */
     .descripcion {
-        background-color: rgba(255, 255, 255, 0.75);
-        border-left: 5px solid #9333ea;
-        padding: 10px 15px;
-        border-radius: 5px;
+        background: linear-gradient(135deg, rgba(45, 27, 78, 0.9), rgba(30, 18, 51, 0.95));
+        border-left: 5px solid #a855f7;
+        padding: 12px 18px;
+        border-radius: 8px;
         font-family: 'Georgia', serif;
-        color: #4c1d95;
+        color: #e9d5ff;
+        box-shadow: 0 0 15px rgba(168, 85, 247, 0.2);
+    }
+    .descripcion b { color: #c084fc; }
+
+    /* Pie de página */
+    .footer {
+        text-align: center;
+        color: #a78bfa;
+        font-family: 'Georgia', serif;
+        font-style: italic;
+        padding: 10px;
+        border-top: 2px dashed #7e22ce;
+        margin-top: 20px;
+    }
+
+    /* Separadores decorativos con hilo */
+    hr {
+        border: none;
+        border-top: 2px dashed #7e22ce;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# TÍTULO
-# ---------------------------------------------------------
 st.title("🧵 Costurero Digital")
 st.markdown(
-    '<div class="descripcion">✂️ Bienvenido a tu taller de diseño. Elige una silueta, '
-    'selecciona tu tela favorita, ajusta tu pincel y da rienda suelta a tu creatividad.</div>',
+    '<div class="descripcion">✂️ Tu taller de diseño. Elige una silueta realista, '
+    'selecciona tu tela, ajusta el pincel y crea tu próximo boceto de moda.</div>',
     unsafe_allow_html=True,
 )
 st.write("")
 
-# ---------------------------------------------------------
-# GENERADOR DE SILUETAS
-# ---------------------------------------------------------
 
-def crear_silueta(tipo: str, talla: str) -> Image.Image:
-    """Genera una silueta de cuerpo humano en PNG con transparencia."""
-    W, H = 500, 800
+# =========================================================
+# SILUETA REALISTA (maniquí de modas, no palitos)
+# =========================================================
+def crear_maniqui(tipo: str, talla: str) -> Image.Image:
+    """
+    Genera una silueta de maniquí de modas realista usando curvas suaves
+    y proporciones anatómicas. Sin palitos ni bolitas.
+    """
+    W, H = 600, 900
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    escala = {"Pequeña": 0.85, "Mediana": 1.0, "Grande": 1.15, "Extra Grande": 1.30}[talla]
+    escala = {"Pequeña": 0.88, "Mediana": 1.0, "Grande": 1.12, "Extra Grande": 1.25}[talla]
     cx = W / 2
+    color = (180, 150, 210, 255)  # morado claro para la silueta
+    color_suave = (200, 175, 230, 180)
 
-    def e(v):
+    def s(v):
         return v * escala
 
-    # CABEZA
-    r_cabeza = e(45)
+    # ---- CABEZA (óvalo más realista) ----
+    cabeza_ancho, cabeza_alto = s(38), s(52)
+    cabeza_y = s(55)
     draw.ellipse(
-        [cx - r_cabeza, e(60), cx + r_cabeza, e(60) + 2 * r_cabeza],
-        outline=(140, 100, 180, 255),
-        width=4,
+        [cx - cabeza_ancho, cabeza_y, cx + cabeza_ancho, cabeza_y + cabeza_alto],
+        outline=color, width=3,
+    )
+    # Cuello suave
+    cuello_y1 = cabeza_y + cabeza_alto
+    cuello_y2 = cuello_y1 + s(35)
+    draw.polygon(
+        [
+            (cx - s(14), cuello_y1), (cx + s(14), cuello_y1),
+            (cx + s(18), cuello_y2), (cx - s(18), cuello_y2),
+        ],
+        outline=color, width=3,
     )
 
-    # CUELLO
-    draw.line([(cx, e(150)), (cx, e(190))], fill=(140, 100, 180, 255), width=4)
-
-    # TORSO
-    ancho_hombros = e(130) if tipo == "Mujer" else e(160)
-    ancho_cintura = e(70) if tipo == "Mujer" else e(110)
-    ancho_caderas = e(120)
-
-    torso = [
-        (cx - ancho_hombros, e(200)),
-        (cx - ancho_cintura, e(400)),
-        (cx - ancho_caderas, e(470)),
-        (cx + ancho_caderas, e(470)),
-        (cx + ancho_cintura, e(400)),
-        (cx + ancho_hombros, e(200)),
-    ]
-    draw.polygon(torso, outline=(140, 100, 180, 255), width=4)
-
-    # BRAZOS
-    largo_brazo = e(280)
-    draw.line(
-        [(cx - ancho_hombros, e(210)), (cx - ancho_hombros - e(20), e(210) + largo_brazo)],
-        fill=(140, 100, 180, 255), width=4,
-    )
-    draw.line(
-        [(cx + ancho_hombros, e(210)), (cx + ancho_hombros + e(20), e(210) + largo_brazo)],
-        fill=(140, 100, 180, 255), width=4,
-    )
-
-    # PIERNAS
-    largo_pierna = e(300)
-    draw.line(
-        [(cx - ancho_caderas * 0.5, e(470)), (cx - ancho_caderas * 0.6, e(470) + largo_pierna)],
-        fill=(140, 100, 180, 255), width=4,
-    )
-    draw.line(
-        [(cx + ancho_caderas * 0.5, e(470)), (cx + ancho_caderas * 0.6, e(470) + largo_pierna)],
-        fill=(140, 100, 180, 255), width=4,
-    )
-
-    # Detalles
+    # ---- HOMBROS Y TORSO (curvas Bézier aproximadas con polígonos suaves) ----
+    hombro_y = cuello_y2 + s(5)
     if tipo == "Mujer":
-        draw.arc(
-            [cx - e(50), e(370), cx + e(50), e(430)],
-            start=0, end=180, fill=(140, 100, 180, 255), width=3,
-        )
+        hombro_ancho = s(110)
+        busto_y = hombro_y + s(60)
+        busto_ancho = s(120)
+        cintura_y = busto_y + s(80)
+        cintura_ancho = s(75)
+        cadera_y = cintura_y + s(70)
+        cadera_ancho = s(125)
     else:
-        draw.line(
-            [(cx - ancho_hombros * 0.7, e(280)), (cx + ancho_hombros * 0.7, e(280))],
-            fill=(140, 100, 180, 200), width=2,
+        hombro_ancho = s(145)
+        busto_y = hombro_y + s(65)
+        busto_ancho = s(135)
+        cintura_y = busto_y + s(85)
+        cintura_ancho = s(105)
+        cadera_y = cintura_y + s(60)
+        cadera_ancho = s(115)
+
+    # Torso: puntos que forman una silueta suave
+    torso_pts = [
+        (cx - hombro_ancho, hombro_y),
+        (cx - busto_ancho, busto_y),
+        (cx - cintura_ancho, cintura_y),
+        (cx - cadera_ancho * 0.9, cadera_y),
+        (cx + cadera_ancho * 0.9, cadera_y),
+        (cx + cintura_ancho, cintura_y),
+        (cx + busto_ancho, busto_y),
+        (cx + hombro_ancho, hombro_y),
+    ]
+    draw.polygon(torso_pts, outline=color, width=3)
+
+    # Pecho femenino (dos curvas sutiles)
+    if tipo == "Mujer":
+        pecho_r = s(28)
+        pecho_y = busto_y - s(10)
+        draw.arc(
+            [cx - s(55), pecho_y - pecho_r, cx - s(10), pecho_y + pecho_r],
+            start=200, end=340, fill=color_suave, width=2,
         )
+        draw.arc(
+            [cx + s(10), pecho_y - pecho_r, cx + s(55), pecho_y + pecho_r],
+            start=200, end=340, fill=color_suave, width=2,
+        )
+
+    # ---- BRAZOS (con forma, no líneas) ----
+    # Brazo izquierdo: del hombro a la cadera
+    brazo_ancho_sup = s(22)
+    brazo_ancho_inf = s(14)
+    codo_y = hombro_y + s(150)
+    muneca_y = codo_y + s(140)
+
+    # Brazo izquierdo
+    brazo_izq_pts = [
+        (cx - hombro_ancho + s(5), hombro_y + s(5)),
+        (cx - hombro_ancho - s(15), hombro_y + s(20)),
+        (cx - hombro_ancho - s(25), codo_y),
+        (cx - hombro_ancho - s(10), muneca_y),
+        (cx - hombro_ancho + s(5), muneca_y),
+        (cx - hombro_ancho + s(10), codo_y),
+        (cx - hombro_ancho + s(15), hombro_y + s(20)),
+    ]
+    draw.polygon(brazo_izq_pts, outline=color, width=2)
+
+    # Brazo derecho (simétrico)
+    brazo_der_pts = [
+        (cx + hombro_ancho - s(5), hombro_y + s(5)),
+        (cx + hombro_ancho + s(15), hombro_y + s(20)),
+        (cx + hombro_ancho + s(25), codo_y),
+        (cx + hombro_ancho + s(10), muneca_y),
+        (cx + hombro_ancho - s(5), muneca_y),
+        (cx + hombro_ancho - s(10), codo_y),
+        (cx + hombro_ancho - s(15), hombro_y + s(20)),
+    ]
+    draw.polygon(brazo_der_pts, outline=color, width=2)
+
+    # ---- PIERNAS (con muslo y pantorrilla) ----
+    entrepierna_y = cadera_y + s(5)
+    rodilla_y = entrepierna_y + s(180)
+    tobillo_y = rodilla_y + s(200)
+
+    # Pierna izquierda
+    muslo_ancho = s(55)
+    rodilla_ancho = s(30)
+    tobillo_ancho = s(18)
+    pierna_izq_pts = [
+        (cx - cadera_ancho * 0.85, cadera_y),
+        (cx - muslo_ancho, entrepierna_y + s(40)),
+        (cx - muslo_ancho * 0.8, rodilla_y),
+        (cx - tobillo_ancho, tobillo_y),
+        (cx - tobillo_ancho + s(5), tobillo_y),
+        (cx - rodilla_ancho, rodilla_y),
+        (cx - muslo_ancho * 0.5, entrepierna_y + s(20)),
+        (cx - s(15), entrepierna_y),
+    ]
+    draw.polygon(pierna_izq_pts, outline=color, width=2)
+
+    # Pierna derecha
+    pierna_der_pts = [
+        (cx + cadera_ancho * 0.85, cadera_y),
+        (cx + muslo_ancho, entrepierna_y + s(40)),
+        (cx + muslo_ancho * 0.8, rodilla_y),
+        (cx + tobillo_ancho, tobillo_y),
+        (cx + tobillo_ancho - s(5), tobillo_y),
+        (cx + rodilla_ancho, rodilla_y),
+        (cx + muslo_ancho * 0.5, entrepierna_y + s(20)),
+        (cx + s(15), entrepierna_y),
+    ]
+    draw.polygon(pierna_der_pts, outline=color, width=2)
+
+    # Pies
+    pie_y = tobillo_y
+    draw.ellipse([cx - s(40), pie_y, cx - s(5), pie_y + s(20)], outline=color, width=2)
+    draw.ellipse([cx + s(5), pie_y, cx + s(40), pie_y + s(20)], outline=color, width=2)
 
     return img
 
 
 def pil_a_data_uri(img: Image.Image) -> str:
-    """Convierte PIL Image a data URI (string base64) para st_canvas."""
     buffered = io.BytesIO()
     img.save(buffered, format="PNG")
     encoded = base64.b64encode(buffered.getvalue()).decode()
     return f"data:image/png;base64,{encoded}"
 
 
-# ---------------------------------------------------------
-# SIDEBAR: CONTROLES
-# ---------------------------------------------------------
+# =========================================================
+# FONDO DEL COSTURERO CON HILOS Y AGUJAS (decorativo)
+# =========================================================
+def crear_fondo_costurero(ancho: int, alto: int, color_base: str) -> Image.Image:
+    """Genera un fondo con patrón de hilos y agujas sutiles."""
+    img = Image.new("RGBA", (ancho, alto), color_base)
+    draw = ImageDraw.Draw(img)
+
+    # Líneas de hilo diagonales suaves (color morado tenue)
+    color_hilo = (168, 85, 247, 25)
+    for i in range(-alto, ancho, 80):
+        draw.line([(i, 0), (i + alto, alto)], fill=color_hilo, width=1)
+    for i in range(-alto, ancho, 80):
+        draw.line([(i + alto, 0), (i, alto)], fill=color_hilo, width=1)
+
+    # Pequeñas "agujas" decorativas en las esquinas
+    color_aguja = (168, 85, 247, 40)
+    # Aguja superior izquierda
+    draw.line([(30, 30), (80, 100)], fill=color_aguja, width=2)
+    draw.ellipse([75, 95, 85, 105], outline=color_aguja, width=1)
+    # Aguja inferior derecha
+    draw.line([(ancho - 80, alto - 100), (ancho - 30, alto - 30)], fill=color_aguja, width=2)
+    draw.ellipse([ancho - 85, alto - 105, ancho - 75, alto - 95], outline=color_aguja, width=1)
+
+    # Botones decorativos dispersos (círculos con 4 huecos)
+    posiciones_botones = [(60, alto - 80), (ancho - 70, 70), (ancho // 2, 40)]
+    for bx, by in posiciones_botones:
+        r = 12
+        draw.ellipse([bx - r, by - r, bx + r, by + r], outline=(168, 85, 247, 50), width=2)
+        for dx, dy in [(-4, -4), (4, -4), (-4, 4), (4, 4)]:
+            draw.ellipse([bx + dx - 2, by + dy - 2, bx + dx + 2, by + dy + 2], fill=(168, 85, 247, 40))
+
+    # Aplicar desenfoque suave para que no compita con el dibujo
+    img = img.filter(ImageFilter.GaussianBlur(radius=0.8))
+    return img
+
+
+# =========================================================
+# SIDEBAR
+# =========================================================
 with st.sidebar:
     st.header("🧵 Panel del Costurero")
+    st.markdown("---")
 
-    # SILUETA
     st.subheader("👗 Silueta")
     tipo_cuerpo = st.radio("Tipo de cuerpo:", ["Mujer", "Hombre"], horizontal=True)
     talla = st.select_slider(
@@ -181,11 +339,9 @@ with st.sidebar:
         options=["Pequeña", "Mediana", "Grande", "Extra Grande"],
         value="Mediana",
     )
-    mostrar_silueta = st.checkbox("Mostrar silueta de fondo", value=True)
+    mostrar_silueta = st.checkbox("Mostrar maniquí de fondo", value=True)
 
-    st.divider()
-
-    # PINCEL
+    st.markdown("---")
     st.subheader("✏️ Pincel")
     drawing_mode = st.selectbox(
         "Modo de dibujo:",
@@ -199,11 +355,9 @@ with st.sidebar:
         }[x],
     )
     stroke_width = st.slider("Grosor del trazo:", 1, 30, 4)
-    stroke_color = st.color_picker("Color del trazo:", "#4c1d95")
+    stroke_color = st.color_picker("Color del trazo:", "#d8b4fe")
 
-    st.divider()
-
-    # TELAS
+    st.markdown("---")
     st.subheader("🧶 Telas")
     telas = {
         "Papel de boceto": {"bg": "#FFFFFF", "color": "#4c1d95", "nombre": "📄 Papel"},
@@ -217,48 +371,41 @@ with st.sidebar:
     }
 
     tela_sel = st.selectbox(
-        "Selecciona tu tela de fondo:",
+        "Selecciona tu tela:",
         options=list(telas.keys()),
         format_func=lambda x: telas[x]["nombre"],
     )
-
     usar_color_tela = st.checkbox("Usar color de tela como trazo", value=False)
     if usar_color_tela:
         stroke_color = telas[tela_sel]["color"]
-
     bg_color = telas[tela_sel]["bg"]
 
-    st.divider()
-
-    # ACCIONES
+    st.markdown("---")
     st.subheader("📐 Acciones")
     if st.button("🗑️ Limpiar lienzo", use_container_width=True):
         st.session_state["canvas_key"] = st.session_state.get("canvas_key", 0) + 1
         st.rerun()
 
-    st.info(
-        "💡 **Tip de costurero:** Dibuja sobre la silueta para crear tu "
-        "boceto. Cambia de tela para inspirarte con nuevos colores."
-    )
+    st.markdown("---")
+    st.info("💡 **Tip:** Dibuja sobre el maniquí. Cambia de tela para inspirarte.")
 
 
-# ---------------------------------------------------------
-# LIENZO CON SILUETA DE FONDO
-# ---------------------------------------------------------
-ancho_canvas, alto_canvas = 500, 700
+# =========================================================
+# LIENZO
+# =========================================================
+ancho_canvas, alto_canvas = 600, 850
 
-# Fondo con color de tela
-fondo = Image.new("RGBA", (ancho_canvas, alto_canvas), bg_color)
+# Fondo base: color de tela + patrón de costurero
+fondo = crear_fondo_costurero(ancho_canvas, alto_canvas, bg_color)
 
+# Superponer maniquí si está activado
 if mostrar_silueta:
-    silueta = crear_silueta(tipo_cuerpo, talla)
-    silueta = silueta.resize((ancho_canvas, alto_canvas))
-    fondo = Image.alpha_composite(fondo.convert("RGBA"), silueta)
+    maniqui = crear_maniqui(tipo_cuerpo, talla)
+    maniqui = maniqui.resize((ancho_canvas, alto_canvas), Image.LANCZOS)
+    fondo = Image.alpha_composite(fondo, maniqui)
 
-# IMPORTANTE: pasar un data URI (string), no un PIL Image
 fondo_uri = pil_a_data_uri(fondo)
 
-# Inicializar clave para resetear canvas
 if "canvas_key" not in st.session_state:
     st.session_state["canvas_key"] = 0
 
@@ -269,29 +416,30 @@ with col2:
         stroke_width=stroke_width,
         stroke_color=stroke_color,
         background_color=bg_color,
-        background_image=fondo_uri,  # string data URI
+        background_image=fondo_uri,
         height=alto_canvas,
         width=ancho_canvas,
         drawing_mode=drawing_mode,
+        update_streamlit=True,
+        return_image_data=True,  # <-- CRÍTICO para evitar el RuntimeError
         key=f"canvas_{st.session_state['canvas_key']}",
     )
 
 st.write("")
 st.markdown(
-    f'<div class="descripcion">🧵 <b>Tela actual:</b> {telas[tela_sel]["nombre"]} | '
-    f'<b>Silueta:</b> {tipo_cuerpo} - Talla {talla} | '
+    f'<div class="descripcion">🧵 <b>Tela:</b> {telas[tela_sel]["nombre"]} | '
+    f'<b>Silueta:</b> {tipo_cuerpo} — Talla {talla} | '
     f'<b>Modo:</b> {drawing_mode}</div>',
     unsafe_allow_html=True,
 )
 
-# ---------------------------------------------------------
-# DESCARGA DEL DISEÑO
-# ---------------------------------------------------------
+# =========================================================
+# DESCARGA
+# =========================================================
 if canvas_result.image_data is not None:
     st.write("")
     col_a, col_b, col_c = st.columns([1, 2, 1])
     with col_b:
-        # Generar el PNG combinado en cuanto haya datos
         arr = np.array(canvas_result.image_data).astype("uint8")
         dibujo = Image.fromarray(arr, "RGBA")
         resultado = Image.alpha_composite(fondo.copy(), dibujo)
@@ -306,6 +454,4 @@ if canvas_result.image_data is not None:
             use_container_width=True,
         )
 
-# Footer
-st.markdown("---")
-st.caption("✂️ Costurero Digital — Donde tu creatividad cobra vida")
+st.markdown('<div class="footer">✂️ Costurero Digital — Donde tu creatividad cobra vida</div>', unsafe_allow_html=True)
