@@ -1,8 +1,10 @@
-import streamlit as st
-from streamlit_drawable_canvas import st_canvas
-from PIL import Image, ImageDraw
-import numpy as np
+import base64
 import io
+
+import numpy as np
+import streamlit as st
+from PIL import Image, ImageDraw
+from streamlit_drawable_canvas import st_canvas
 
 # ---------------------------------------------------------
 # CONFIGURACIÓN DE PÁGINA
@@ -14,61 +16,55 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CSS AMBIENTACIÓN COSTURERO
+# CSS AMBIENTACIÓN COSTURERO MORADO
 # ---------------------------------------------------------
 st.markdown("""
 <style>
-    /* Fondo tipo madera / costurero */
     .stApp {
-        background: linear-gradient(135deg, #f5e6d3 0%, #e8d5b7 50%, #d4b896 100%);
+        background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 50%, #d8b4fe 100%);
     }
-    /* Título estilo letrero de costura */
     h1 {
         font-family: 'Georgia', serif;
-        color: #6b4423;
+        color: #6b21a8;
         text-align: center;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.15);
-        border-bottom: 3px dashed #8b6f47;
+        text-shadow: 1px 1px 3px rgba(107, 33, 168, 0.2);
+        border-bottom: 3px dashed #a855f7;
         padding-bottom: 10px;
     }
     h2, h3 {
         font-family: 'Georgia', serif;
-        color: #6b4423;
+        color: #6b21a8;
     }
-    /* Sidebar con textura */
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #faf3e8 0%, #efe2cc 100%);
-        border-right: 2px dashed #b89968;
+        background: linear-gradient(180deg, #faf5ff 0%, #f3e8ff 100%);
+        border-right: 2px dashed #c084fc;
     }
-    /* Botones estilo botón de costura */
     .stButton > button {
-        background-color: #8b6f47;
+        background-color: #7e22ce;
         color: white;
         border-radius: 20px;
-        border: 2px solid #6b4423;
+        border: 2px solid #6b21a8;
         font-weight: bold;
         padding: 0.5em 1.5em;
     }
     .stButton > button:hover {
-        background-color: #6b4423;
-        color: #faf3e8;
+        background-color: #6b21a8;
+        color: #faf5ff;
     }
-    /* Contenedor del canvas con sombra de tela */
     div[data-testid="stCanvas"] {
-        border: 3px solid #8b6f47;
+        border: 3px solid #a855f7;
         border-radius: 10px;
-        box-shadow: 5px 5px 15px rgba(107, 68, 35, 0.3);
+        box-shadow: 5px 5px 15px rgba(107, 33, 168, 0.25);
         background: white;
         padding: 5px;
     }
-    /* Texto descriptivo */
     .descripcion {
-        background-color: rgba(255, 255, 255, 0.7);
-        border-left: 5px solid #8b6f47;
+        background-color: rgba(255, 255, 255, 0.75);
+        border-left: 5px solid #9333ea;
         padding: 10px 15px;
         border-radius: 5px;
         font-family: 'Georgia', serif;
-        color: #4a2f1a;
+        color: #4c1d95;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -94,30 +90,28 @@ def crear_silueta(tipo: str, talla: str) -> Image.Image:
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    # Factor de escala según talla
     escala = {"Pequeña": 0.85, "Mediana": 1.0, "Grande": 1.15, "Extra Grande": 1.30}[talla]
     cx = W / 2
 
-    def e(v):  # escalar
+    def e(v):
         return v * escala
 
-    # --- CABEZA ---
+    # CABEZA
     r_cabeza = e(45)
     draw.ellipse(
         [cx - r_cabeza, e(60), cx + r_cabeza, e(60) + 2 * r_cabeza],
-        outline=(180, 160, 140, 255),
+        outline=(140, 100, 180, 255),
         width=4,
     )
 
-    # --- CUELLO ---
-    draw.line([(cx, e(150)), (cx, e(190))], fill=(180, 160, 140, 255), width=4)
+    # CUELLO
+    draw.line([(cx, e(150)), (cx, e(190))], fill=(140, 100, 180, 255), width=4)
 
-    # --- HOMBROS / TRONCO ---
+    # TORSO
     ancho_hombros = e(130) if tipo == "Mujer" else e(160)
     ancho_cintura = e(70) if tipo == "Mujer" else e(110)
-    ancho_caderas = e(120) if tipo == "Mujer" else e(120)
+    ancho_caderas = e(120)
 
-    # Torso
     torso = [
         (cx - ancho_hombros, e(200)),
         (cx - ancho_cintura, e(400)),
@@ -126,55 +120,51 @@ def crear_silueta(tipo: str, talla: str) -> Image.Image:
         (cx + ancho_cintura, e(400)),
         (cx + ancho_hombros, e(200)),
     ]
-    draw.polygon(torso, outline=(180, 160, 140, 255), width=4)
+    draw.polygon(torso, outline=(140, 100, 180, 255), width=4)
 
-    # --- BRAZOS ---
+    # BRAZOS
     largo_brazo = e(280)
-    # Brazo izquierdo
     draw.line(
         [(cx - ancho_hombros, e(210)), (cx - ancho_hombros - e(20), e(210) + largo_brazo)],
-        fill=(180, 160, 140, 255), width=4,
+        fill=(140, 100, 180, 255), width=4,
     )
-    # Brazo derecho
     draw.line(
         [(cx + ancho_hombros, e(210)), (cx + ancho_hombros + e(20), e(210) + largo_brazo)],
-        fill=(180, 160, 140, 255), width=4,
+        fill=(140, 100, 180, 255), width=4,
     )
 
-    # --- PIERNAS ---
+    # PIERNAS
     largo_pierna = e(300)
-    # Pierna izquierda
     draw.line(
         [(cx - ancho_caderas * 0.5, e(470)), (cx - ancho_caderas * 0.6, e(470) + largo_pierna)],
-        fill=(180, 160, 140, 255), width=4,
+        fill=(140, 100, 180, 255), width=4,
     )
-    # Pierna derecha
     draw.line(
         [(cx + ancho_caderas * 0.5, e(470)), (cx + ancho_caderas * 0.6, e(470) + largo_pierna)],
-        fill=(180, 160, 140, 255), width=4,
+        fill=(140, 100, 180, 255), width=4,
     )
 
-    # Detalles según tipo
+    # Detalles
     if tipo == "Mujer":
-        # Curvas de cintura
         draw.arc(
             [cx - e(50), e(370), cx + e(50), e(430)],
-            start=0, end=180, fill=(180, 160, 140, 255), width=3,
+            start=0, end=180, fill=(140, 100, 180, 255), width=3,
         )
     else:
-        # Línea pectoral
         draw.line(
             [(cx - ancho_hombros * 0.7, e(280)), (cx + ancho_hombros * 0.7, e(280))],
-            fill=(180, 160, 140, 200), width=2,
+            fill=(140, 100, 180, 200), width=2,
         )
 
     return img
 
 
-def imagen_a_base64(imagen: Image.Image) -> str:
+def pil_a_data_uri(img: Image.Image) -> str:
+    """Convierte PIL Image a data URI (string base64) para st_canvas."""
     buffered = io.BytesIO()
-    imagen.save(buffered, format="PNG")
-    return "data:image/png;base64," + __import__("base64").b64encode(buffered.getvalue()).decode()
+    img.save(buffered, format="PNG")
+    encoded = base64.b64encode(buffered.getvalue()).decode()
+    return f"data:image/png;base64,{encoded}"
 
 
 # ---------------------------------------------------------
@@ -183,7 +173,7 @@ def imagen_a_base64(imagen: Image.Image) -> str:
 with st.sidebar:
     st.header("🧵 Panel del Costurero")
 
-    # --- SILUETA ---
+    # SILUETA
     st.subheader("👗 Silueta")
     tipo_cuerpo = st.radio("Tipo de cuerpo:", ["Mujer", "Hombre"], horizontal=True)
     talla = st.select_slider(
@@ -195,7 +185,7 @@ with st.sidebar:
 
     st.divider()
 
-    # --- PINCEL ---
+    # PINCEL
     st.subheader("✏️ Pincel")
     drawing_mode = st.selectbox(
         "Modo de dibujo:",
@@ -209,21 +199,21 @@ with st.sidebar:
         }[x],
     )
     stroke_width = st.slider("Grosor del trazo:", 1, 30, 4)
-    stroke_color = st.color_picker("Color del trazo:", "#2c1810")
+    stroke_color = st.color_picker("Color del trazo:", "#4c1d95")
 
     st.divider()
 
-    # --- TELAS ---
+    # TELAS
     st.subheader("🧶 Telas")
     telas = {
-        "Papel de boceto": {"bg": "#FFFFFF", "color": "#2c1810", "nombre": "📄 Papel"},
-        "Lino natural": {"bg": "#F5EBD8", "color": "#5c3d1e", "nombre": "🌾 Lino"},
-        "Denim": {"bg": "#4A6FA5", "color": "#FFFFFF", "nombre": "👖 Denim"},
-        "Seda rosa": {"bg": "#F8D7DA", "color": "#8B2A3F", "nombre": "🌸 Seda"},
-        "Terciopelo": {"bg": "#4B0082", "color": "#F0E68C", "nombre": "💜 Terciopelo"},
-        "Lentejuela": {"bg": "#1A1A2E", "color": "#FFD700", "nombre": "✨ Lentejuela"},
-        "Verde oliva": {"bg": "#808000", "color": "#F5F5DC", "nombre": "🫒 Oliva"},
-        "Encaje": {"bg": "#FFF5EE", "color": "#8B4513", "nombre": "🕸️ Encaje"},
+        "Papel de boceto": {"bg": "#FFFFFF", "color": "#4c1d95", "nombre": "📄 Papel"},
+        "Lavanda": {"bg": "#E6E6FA", "color": "#6b21a8", "nombre": "💜 Lavanda"},
+        "Amatista": {"bg": "#9966CC", "color": "#FFFFFF", "nombre": "🔮 Amatista"},
+        "Malva": {"bg": "#E0B0FF", "color": "#4c1d95", "nombre": "🌸 Malva"},
+        "Uva oscura": {"bg": "#4A1A6B", "color": "#E9D5FF", "nombre": "🍇 Uva"},
+        "Orquídea": {"bg": "#DA70D6", "color": "#FFFFFF", "nombre": "🌺 Orquídea"},
+        "Ciruela": {"bg": "#8E4585", "color": "#FDF4FF", "nombre": "🫐 Ciruela"},
+        "Lila suave": {"bg": "#F3E8FF", "color": "#7e22ce", "nombre": "🪻 Lila"},
     }
 
     tela_sel = st.selectbox(
@@ -240,7 +230,7 @@ with st.sidebar:
 
     st.divider()
 
-    # --- ACCIONES ---
+    # ACCIONES
     st.subheader("📐 Acciones")
     if st.button("🗑️ Limpiar lienzo", use_container_width=True):
         st.session_state["canvas_key"] = st.session_state.get("canvas_key", 0) + 1
@@ -255,33 +245,31 @@ with st.sidebar:
 # ---------------------------------------------------------
 # LIENZO CON SILUETA DE FONDO
 # ---------------------------------------------------------
-# Generar imagen de fondo combinada (tela + silueta)
 ancho_canvas, alto_canvas = 500, 700
 
-# Crear fondo con color de tela
+# Fondo con color de tela
 fondo = Image.new("RGBA", (ancho_canvas, alto_canvas), bg_color)
 
 if mostrar_silueta:
     silueta = crear_silueta(tipo_cuerpo, talla)
-    # Redimensionar y centrar silueta
     silueta = silueta.resize((ancho_canvas, alto_canvas))
     fondo = Image.alpha_composite(fondo.convert("RGBA"), silueta)
 
-fondo_b64 = imagen_a_base64(fondo)
-bg_image = Image.open(io.BytesIO(__import__("base64").b64decode(fondo_b64.split(",")[1])))
+# IMPORTANTE: pasar un data URI (string), no un PIL Image
+fondo_uri = pil_a_data_uri(fondo)
 
-# Inicializar clave del canvas para resetear
+# Inicializar clave para resetear canvas
 if "canvas_key" not in st.session_state:
     st.session_state["canvas_key"] = 0
 
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     canvas_result = st_canvas(
-        fill_color="rgba(255, 165, 0, 0.15)",
+        fill_color="rgba(168, 85, 247, 0.15)",
         stroke_width=stroke_width,
         stroke_color=stroke_color,
         background_color=bg_color,
-        background_image=bg_image,
+        background_image=fondo_uri,  # string data URI
         height=alto_canvas,
         width=ancho_canvas,
         drawing_mode=drawing_mode,
@@ -303,21 +291,20 @@ if canvas_result.image_data is not None:
     st.write("")
     col_a, col_b, col_c = st.columns([1, 2, 1])
     with col_b:
-        if st.button("💾 Descargar mi diseño", use_container_width=True):
-            # Combinar fondo + dibujo del usuario
-            arr = np.array(canvas_result.image_data).astype("uint8")
-            dibujo = Image.fromarray(arr, "RGBA")
-            resultado = Image.alpha_composite(fondo.copy(), dibujo)
+        # Generar el PNG combinado en cuanto haya datos
+        arr = np.array(canvas_result.image_data).astype("uint8")
+        dibujo = Image.fromarray(arr, "RGBA")
+        resultado = Image.alpha_composite(fondo.copy(), dibujo)
 
-            buf = io.BytesIO()
-            resultado.save(buf, format="PNG")
-            st.download_button(
-                label="⬇️ Haz clic para guardar",
-                data=buf.getvalue(),
-                file_name=f"diseno_{tipo_cuerpo}_{talla}.png",
-                mime="image/png",
-                use_container_width=True,
-            )
+        buf = io.BytesIO()
+        resultado.save(buf, format="PNG")
+        st.download_button(
+            label="💾 Descargar mi diseño",
+            data=buf.getvalue(),
+            file_name=f"diseno_{tipo_cuerpo}_{talla}.png",
+            mime="image/png",
+            use_container_width=True,
+        )
 
 # Footer
 st.markdown("---")
