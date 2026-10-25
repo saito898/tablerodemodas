@@ -1,4 +1,3 @@
-
 import io
 import math
 
@@ -778,6 +777,7 @@ with col_editor:
         height=CANVAS_H,
         drawing_mode=drawing_mode,
         update_streamlit=True,
+        return_image_data=True,
         key=f"atelier_canvas_{st.session_state['design_version']}",
     )
 
@@ -907,28 +907,39 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-if canvas_result.image_data is not None:
-    arr = np.asarray(canvas_result.image_data).astype("uint8")
-    resultado = Image.fromarray(arr)
+# La lectura de image_data solo está habilitada cuando
+# return_image_data=True está activo en st_canvas.
+try:
+    imagen_canvas = canvas_result.image_data
+except (RuntimeError, AttributeError):
+    imagen_canvas = None
 
-    # Garantizar modo compatible para exportación.
-    if resultado.mode not in ("RGB", "RGBA"):
-        resultado = resultado.convert("RGBA")
+if imagen_canvas is not None:
+    try:
+        arr = np.asarray(imagen_canvas).astype("uint8")
+        resultado = Image.fromarray(arr)
 
-    buf = io.BytesIO()
-    resultado.save(buf, format="PNG")
+        # Garantizar modo compatible para exportación.
+        if resultado.mode not in ("RGB", "RGBA"):
+            resultado = resultado.convert("RGBA")
 
-    col_blank, col_download, col_blank2 = st.columns([1, 2, 1])
+        buf = io.BytesIO()
+        resultado.save(buf, format="PNG")
+        datos_png = buf.getvalue()
 
-    with col_download:
-        st.download_button(
-            label="💾 Descargar diseño en PNG",
-            data=buf.getvalue(),
-            file_name=f"atelier_{tipo_cuerpo}_{complexion.lower()}.png",
-            mime="image/png",
-            use_container_width=True,
-            type="primary"
-        )
+        col_blank, col_download, col_blank2 = st.columns([1, 2, 1])
+
+        with col_download:
+            st.download_button(
+                label="💾 Descargar diseño en PNG",
+                data=datos_png,
+                file_name=f"atelier_{tipo_cuerpo}_{complexion.lower()}.png",
+                mime="image/png",
+                use_container_width=True,
+                type="primary",
+            )
+    except (ValueError, TypeError, OSError) as error:
+        st.warning("No se pudo preparar la imagen para descargar. Intenta dibujar de nuevo.")
 else:
     st.info("Empieza a dibujar para preparar tu primer diseño descargable.")
 
